@@ -16,10 +16,20 @@
 
 package com.udacity.example.quizexample;
 
+import android.app.Notification;
+import android.app.NotificationManager;
+import android.content.ContentResolver;
+import android.content.Context;
+import android.database.Cursor;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.app.NotificationCompat;
 import android.view.View;
 import android.widget.Button;
+import android.widget.TextView;
+
+import com.udacity.example.droidtermsprovider.DroidTermsExampleContract;
 
 /**
  * Gets the data from the ContentProvider and shows a series of flash cards.
@@ -31,7 +41,10 @@ public class MainActivity extends AppCompatActivity {
     private int mCurrentState;
 
     // TODO (3) Create an instance variable storing a Cursor called mData
+    private Cursor mData;
     private Button mButton;
+    private TextView wordTextView;
+    private TextView defTextView;
 
     // This state is when the word definition is hidden and clicking the button will therefore
     // show the definition
@@ -40,6 +53,8 @@ public class MainActivity extends AppCompatActivity {
     // This state is when the word definition is shown and clicking the button will therefore
     // advance the app to the next word
     private final int STATE_SHOWN = 1;
+    private int wordIndex;
+    private int defIndex;
 
 
     @Override
@@ -49,8 +64,11 @@ public class MainActivity extends AppCompatActivity {
 
         // Get the views
         mButton = (Button) findViewById(R.id.button_next);
+        wordTextView = (TextView) findViewById(R.id.text_view_word);
+        defTextView = (TextView) findViewById(R.id.text_view_definition);
 
         // TODO (5) Create and execute your AsyncTask here
+        new MyAsyncTask().execute();
     }
 
     /**
@@ -74,25 +92,85 @@ public class MainActivity extends AppCompatActivity {
 
     public void nextWord() {
 
+        defTextView.setVisibility(View.INVISIBLE);
+
         // Change button text
         mButton.setText(getString(R.string.show_definition));
 
         mCurrentState = STATE_HIDDEN;
 
+        if(mData != null) {
+            if(!mData.moveToNext()) {
+                mData.moveToFirst();
+            }
+        }
+
+
+        String word = mData.getString(wordIndex);
+        wordTextView.setText(word);
+
+        pushNotification(word);
     }
 
     public void showDefinition() {
+
+        defTextView.setVisibility(View.VISIBLE);
 
         // Change button text
         mButton.setText(getString(R.string.next_word));
 
         mCurrentState = STATE_SHOWN;
 
+        String definition = mData.getString(defIndex);
+        defTextView.setText(definition);
+
+
+
+    }
+
+    private void pushNotification(String word) {
+        NotificationManager notificationManager =
+                (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        int notifyId = 1;
+        String channelId = "some_channel_id";
+
+        Notification notification = new Notification.Builder(MainActivity.this)
+                .setContentTitle("Some Message")
+                .setContentText("You've received new messages!")
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .build();
+
+        notificationManager.notify(id, notification);
     }
 
     // TODO (1) Create AsyncTask with the following generic types <Void, Void, Cursor>
     // TODO (2) In the doInBackground method, write the code to access the DroidTermsExample
     // provider and return the Cursor object
     // TODO (4) In the onPostExecute method, store the Cursor object in mData
+
+    class MyAsyncTask extends AsyncTask<Void, Void, Cursor> {
+
+        @Override
+        protected Cursor doInBackground(Void... voids) {
+
+            ContentResolver resolver = getContentResolver();
+            Cursor cursor = resolver.query(DroidTermsExampleContract.CONTENT_URI, null, null, null, null);
+
+            return cursor;
+        }
+
+        @Override
+        protected void onPostExecute(Cursor cursor) {
+            super.onPostExecute(cursor);
+
+            mData = cursor;
+
+            wordIndex = mData.getColumnIndex(DroidTermsExampleContract.COLUMN_WORD);
+            defIndex = mData.getColumnIndex(DroidTermsExampleContract.COLUMN_DEFINITION);
+
+            nextWord();
+
+        }
+    }
 
 }

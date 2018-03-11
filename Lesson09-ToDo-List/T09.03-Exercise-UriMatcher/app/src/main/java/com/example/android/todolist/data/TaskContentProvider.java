@@ -17,9 +17,13 @@
 package com.example.android.todolist.data;
 
 import android.content.ContentProvider;
+import android.content.ContentUris;
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.UriMatcher;
 import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
+import android.database.sqlite.SQLiteException;
 import android.net.Uri;
 import android.support.annotation.NonNull;
 
@@ -29,10 +33,24 @@ public class TaskContentProvider extends ContentProvider {
     // TODO (1) Define final integer constants for the directory of tasks and a single item.
     // It's convention to use 100, 200, 300, etc for directories,
     // and related ints (101, 102, ..) for items in that directory.
+    private static final int TASKS = 100;
+    private static final int TASK_WITH_ID = 101;
 
     // TODO (3) Declare a static variable for the Uri matcher that you construct
+    public static UriMatcher sUriMatcher = buildUriMatacher();
 
     // TODO (2) Define a static buildUriMatcher method that associates URI's with their int match
+
+    public static UriMatcher buildUriMatacher() {
+        UriMatcher uriMatcher = new UriMatcher(UriMatcher.NO_MATCH);
+
+        uriMatcher.addURI(TaskContract.AUTHORITY, TaskContract.PATH_TASKS, TASKS);
+
+        uriMatcher.addURI(TaskContract.AUTHORITY, TaskContract.PATH_TASKS + "/#", TASK_WITH_ID);
+
+        return uriMatcher;
+
+    }
 
     // Member variable for a TaskDbHelper that's initialized in the onCreate() method
     private TaskDbHelper mTaskDbHelper;
@@ -56,7 +74,32 @@ public class TaskContentProvider extends ContentProvider {
     @Override
     public Uri insert(@NonNull Uri uri, ContentValues values) {
 
-        throw new UnsupportedOperationException("Not yet implemented");
+        SQLiteDatabase db = mTaskDbHelper.getWritableDatabase();
+
+        int match = sUriMatcher.match(uri);
+
+        Uri returnUri = null;
+
+        switch(match) {
+            case TASKS:
+                long id = db.insert(TaskContract.TaskEntry.TABLE_NAME, null, values);
+
+                if(id > 0) {
+                    returnUri  = ContentUris.withAppendedId(TaskContract.TaskEntry.CONTENT_URI, id);
+                }
+                else {
+                    throw new SQLiteException("Failed to insert row into " + uri);
+                }
+                break;
+            default:
+                throw new UnsupportedOperationException("Unknown uri " + uri);
+        }
+
+        // If insert unsuccessful, returns -1 otherwise returns row id
+
+        getContext().getContentResolver().notifyChange(returnUri, null);
+
+        return returnUri;
     }
 
 
