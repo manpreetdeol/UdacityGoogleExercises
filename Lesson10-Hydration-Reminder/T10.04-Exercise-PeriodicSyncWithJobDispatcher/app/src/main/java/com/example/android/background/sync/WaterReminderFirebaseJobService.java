@@ -15,7 +15,17 @@
  */
 package com.example.android.background.sync;
 
-public class WaterReminderFirebaseJobService {
+import android.annotation.SuppressLint;
+import android.app.job.JobParameters;
+import android.os.AsyncTask;
+import android.os.Build;
+
+import com.firebase.jobdispatcher.JobService;
+
+@SuppressLint("NewApi")
+public class WaterReminderFirebaseJobService extends JobService {
+
+    private AsyncTask mBackgroundTask;
     // TODO (3) WaterReminderFirebaseJobService should extend from JobService
 
     // TODO (4) Override onStartJob
@@ -29,7 +39,37 @@ public class WaterReminderFirebaseJobService {
             // and false to jobFinished. This will inform the JobManager that your job is done
             // and that you do not want to reschedule the job.
 
-        // TODO (9) Execute the AsyncTask
+    @Override
+    public boolean onStartJob(final com.firebase.jobdispatcher.JobParameters jobParameters) {
+        mBackgroundTask = new AsyncTask() {
+            @Override
+            protected Object doInBackground(Object[] objects) {
+                ReminderTasks.executeTask(WaterReminderFirebaseJobService.this, ReminderTasks.ACTION_CHARGING_REMINDER);
+                return null;
+            }
+
+            @Override
+            protected void onPostExecute(Object o) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    jobFinished(jobParameters, false);
+                }
+            }
+        };
+
+        mBackgroundTask.execute();
+        return true;
+    }
+
+    @Override
+    public boolean onStopJob(com.firebase.jobdispatcher.JobParameters job) {
+        if(mBackgroundTask != null)
+            mBackgroundTask.cancel(true);
+
+        // this 'true' means that as soon as the job conditions are re-met, the job should be retried again
+        return true;
+    }
+
+    // TODO (9) Execute the AsyncTask
         // TODO (10) Return true
 
     // TODO (11) Override onStopJob
